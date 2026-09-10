@@ -1,0 +1,64 @@
+// This Jenkinsfile powers a separate, standalone pipeline job named
+// "CD_deploy_manual" used to manually (re)deploy an already-built Docker
+// image to the "main" or "dev" environment (simulated via container/port),
+// without rebuilding or retesting anything.
+//
+// Job setup:
+//   - Create a new "Pipeline" job called "CD_deploy_manual".
+//   - Under "Pipeline", choose "Pipeline script from SCM", point it at this
+//     repo, and set "Script Path" to "Jenkinsfile.manual-deploy".
+//   - Enable "This project is parameterized" is not required manually; the
+//     `parameters {}` block below defines them automatically on first run.
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['main', 'dev'],
+            description: 'Target environment to deploy to'
+        )
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: 'v1.0',
+            description: 'Tag of the Docker image to deploy'
+        )
+    }
+
+    environment {
+        IMAGE_NAME  = "${params.ENVIRONMENT == 'main' ? 'nodemain' : 'nodedev'}"
+        CONTAINER   = "${params.ENVIRONMENT == 'main' ? 'nodemain' : 'nodedev'}"
+        HOST_PORT   = "${params.ENVIRONMENT == 'main' ? '3000' : '3001'}"
+        // The Jenkins service on macOS often runs with a minimal PATH that
+        // doesn't include the Docker CLI symlink, so make sure it's found.
+        PATH        = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+    }
+
+    stages {
+        stage('Verify Image Exists') {
+            steps {
+                sh "docker image inspect ${IMAGE_NAME}:${params.IMAGE_TAG} > /dev/null"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                // Stop/remove the previous container for this environment
+                // only right before starting the new one, so downtime is
+                // limited to the brief gap between "docker stop" and
+                // "docker run".
+                sh """
+                    docker stop ${CONTAINER} || true
+                    docker rm ${CONTAINER} || true
+                """
+                sh "docker run -d --name ${CONTAINER} --expose 3000 -p ${HOST_PORT}:3000 ${IMAGE_NAME}:${params.IMAGE_TAG}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployed ${IMAGE_NAME}:${params.IMAGE_TAG} to '${params.ENVIRONMENT}' on port ${HOST_PORT}"
+        }
+    }
+}
