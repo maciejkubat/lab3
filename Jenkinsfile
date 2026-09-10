@@ -4,7 +4,7 @@ pipeline {
     // Configure a NodeJS installation with this exact name under
     // "Manage Jenkins" > "Global Tool Configuration" > "NodeJS".
     tools {
-        nodejs 'NodeJS'
+        nodejs 'node'
     }
 
     // This single Jenkinsfile drives both the "main" and "dev" branches.
