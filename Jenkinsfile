@@ -15,6 +15,9 @@ pipeline {
         CONTAINER    = "${env.BRANCH_NAME == 'main' ? 'nodemain' : 'nodedev'}"
         HOST_PORT    = "${env.BRANCH_NAME == 'main' ? '3000' : '3001'}"
         EXPOSE_PORT  = "${env.BRANCH_NAME == 'main' ? '3000' : '3001'}"
+        // The Jenkins service on macOS often runs with a minimal PATH that
+        // doesn't include the Docker CLI symlink, so make sure it's found.
+        PATH         = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
     }
 
     stages {
